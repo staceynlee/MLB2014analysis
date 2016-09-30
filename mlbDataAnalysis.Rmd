@@ -1,0 +1,106 @@
+# Load libraries
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(plotrix)
+library(plotly)
+
+# Read and extract the data
+df <- read_excel("mlb2014.xls", sheet=1, col_names = TRUE)
+
+# Arrange by team and then average
+grouped <- arrange(df, teamID, avg)
+
+# Find mean and standard deviation of batting averages by team
+avg <- setNames(aggregate(grouped$avg, by=list(grouped$teamID, grouped$lg), FUN=mean), c("Team", "League", "Avg"))
+stdev <- setNames(aggregate(grouped$avg, by=list(grouped$teamID, grouped$lg), FUN=sd), c("Team", "League", "Stdev"))
+totalDF <- bind_cols(avg, stdev)
+totalDF <- totalDF[, !duplicated(colnames(totalDF))]
+totalDF <- na.omit(totalDF)
+
+# Plot means with sd
+ggplot(totalDF, aes(x=Team, y=Avg, fill=League)) + geom_bar(position = "dodge", stat = "identity") + 
+  geom_errorbar(aes(ymax = Avg + Stdev, ymin=Avg - Stdev)) + 
+  labs(title = "Mean Batting Average in 2014", x = "Team",
+       y = "Batting Average") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Find mean average by league
+leagueDF <- setNames(aggregate(totalDF$Avg, by=list(totalDF$League), FUN=mean), c("League", "Avg"))
+
+# Plot league avg comparison
+ggplot(leagueDF, aes(x=League, y=Avg, fill=League)) + geom_bar(position = "dodge", stat = "identity") + 
+  labs(title = "Mean Batting Average in 2014", x = "League",
+       y = "Batting Average") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Boxplot of avg by team
+ggplot(df, aes(x=teamID, y=avg)) + geom_boxplot(outlier.colour="red", outlier.shape=8, outlier.size=2) + 
+  labs(title = "Mean Batting Average in 2014", x = "Team", y = "Batting Average") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Boxplot of avg by league
+ggplot(totalDF, aes(x=League, y=Avg)) + geom_boxplot() + 
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4) +
+  labs(title = "Mean Batting Average in 2014", x = "League", y = "Batting Average") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Boxplot of avg by league with dots
+ggplot(totalDF, aes(x=League, y=Avg, color=League)) + geom_boxplot() + 
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.1, binwidth=.01) +
+  labs(title = "Mean Batting Average in 2014", x = "League", y = "Batting Average") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Find mean and standard deviation of home runs by team
+avgHR <- setNames(aggregate(grouped$HR, by=list(grouped$teamID, grouped$lg), FUN=mean), c("Team", "League", "Avg"))
+stdevHR <- setNames(aggregate(grouped$HR, by=list(grouped$teamID, grouped$lg), FUN=sd), c("Team", "League", "Stdev"))
+totalHR <- bind_cols(avgHR, stdevHR)
+totalHR <- totalHR[, !duplicated(colnames(totalHR))]
+totalHR <- na.omit(totalHR)
+
+# Boxplot of home runs by team
+ggplot(df, aes(x=teamID, y=HR)) + geom_boxplot(outlier.colour="red", outlier.shape=8, outlier.size=2) + 
+  labs(title = "Home Runs in 2014", x = "Team", y = "Home Runs") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Boxplot of home runs by league
+ggplot(totalHR, aes(x=League, y=Avg, color=League)) + geom_boxplot() + 
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, binwidth=.1) +
+  labs(title = "Mean Home Runs in 2014 by League", x = "League", y = "Home Runs") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Subset ATL
+totalATL <- filter(grouped, teamID=="ATL")
+
+# Plot of avg for each player on ATL
+ggplot(totalATL, aes(x=nameLast, y=avg)) + geom_bar(stat="identity") + 
+  labs(title = "Batting Average of Atlanta Braves Players in 2014", x = "Player", y = "Avg") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Plot of home runs for each player on ATL
+ggplot(totalATL, aes(x=nameLast, y=HR)) + geom_bar(stat="identity") + 
+  labs(title = "Number of Home Runs by Atlanta Braves Players in 2014", x = "Player", y = "Home Runs") + 
+  theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Plot batting avg and home runs for each team
+teamsList <- na.omit(unique(grouped$teamID))
+
+for (i in teamsList) {
+  plot <- ggplot(grouped[grep(i, grouped$teamID),], aes(x=nameLast, y=avg)) + geom_bar(stat="identity") + 
+          labs(title = "Batting Averages in 2014", x = "Player", y = "Batting Average") +
+          theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+  print (plot)
+}
+
+for (i in teamsList) {
+  plot <- ggplot(grouped[grep(i, grouped$teamID),], aes(x=nameLast, y=HR)) + geom_bar(stat="identity") + 
+    labs(title = "Home Runs in 2014", x = "Player", y = "Home Runs") +
+    theme(text=element_text(size=20), axis.text.x = element_text(angle = 90, hjust = 1))
+  print (plot)
+}
+
+library(knitr)
+knit('mlb2014.R')
